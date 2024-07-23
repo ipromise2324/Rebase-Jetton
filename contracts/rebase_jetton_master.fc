@@ -1,0 +1,54 @@
+#include "imports/stdlib.fc";
+#include "./rebase_jetton_master/storages.fc";
+#include "./rebase_jetton_master/errors.fc";
+#include "./rebase_jetton_master/opcodes.fc";
+#include "./rebase_jetton_master/constants.fc";
+
+() route_internal(slice ctx::sender, int ctx::value, int ctx::fwd_fee, slice ctx::body) impure inline {
+    ;; load op and query id
+    (int op, int query_id) = ctx::body~load_op_and_query_id();
+    
+    if op == op::request_rebase_info {
+        int sending_back_value = ctx::value; ;; TODO: Gas calculation here
+
+        var msg = begin_cell()
+        .store_msg_flags_and_address_none(NON_BOUNCEABLE)
+        .store_slice(ctx::sender)
+        .store_coins(sending_back_value)
+        .store_only_body_ref(
+            begin_cell()
+                .store_op(op::provide_rebase_info)
+                .store_query_id(query_id)
+                .store_coins(rebase_jm::total_supply)
+                .store_coins(rebase_jm::total_shares)
+                .store_uint(rebase_jm::rebase_time + rebase_jm::rebase_interval, 32) ;; expriation time
+            .end_cell() 
+        );
+        send_raw_message(msg.end_cell(), SEND_MODE_IGNORE_ERRORS | SEND_MODE_CARRY_ALL_REMAINING_MESSAGE_VALUE);
+        return ();
+    }
+
+    ;; TODO: add TEP 130 Code for Shares and Balances and Essential Jetton Code
+    throw(error::wrong_op);
+}
+
+() main(int ctx::value, cell in_msg_full, slice ctx::body) impure {
+    slice s = in_msg_full.begin_parse();
+    int flags = s~load_msg_flags();
+
+    if (is_bounced(flags)) { ;; skip all bounced messages
+        return ();
+    }
+    
+    ;; get context
+    (slice ctx::sender, int ctx::fwd_fee) = s~retrieve_ctx(MY_WORKCHAIN);
+
+    ;; Load data from storage
+    load_data();
+
+    ;; route function to handle internal message
+    route_internal(ctx::sender, ctx::value, ctx::fwd_fee, ctx::body);
+
+    ;; Save data to storage
+    save_data();
+}

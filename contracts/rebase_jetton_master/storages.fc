@@ -1,0 +1,35 @@
+global slice rebase_jm::admin_addr;
+global int rebase_jm::total_supply;
+global int rebase_jm::total_shares;
+global cell rebase_jm::jetton_content;
+global cell rebase_jm::jetton_wallet_code;
+global int rebase_jm::rebase_time; ;; Rebase cycle start time
+global int rebase_jm::rebase_interval; ;; Rebase cycle interval
+;; The next rebase update time will be rebase_jm::rebase_time + rebase_jm::rebase_interval
+
+() load_data() impure inline_ref {
+    slice ds = get_data().begin_parse();
+    rebase_jm::admin_addr = ds~load_msg_addr();
+    rebase_jm::total_supply = ds~load_coins();
+    rebase_jm::total_shares = ds~load_coins();
+    rebase_jm::jetton_content = ds~load_ref();
+    rebase_jm::jetton_wallet_code = ds~load_ref();
+    rebase_jm::rebase_time = ds~load_uint(32);
+    rebase_jm::rebase_interval = ds~load_uint(32);
+    ds.end_parse();
+}
+
+
+() save_data() impure inline_ref {
+    begin_cell()
+        .store_slice(rebase_jm::admin_addr)
+        .store_coins(rebase_jm::total_supply)
+        .store_coins(rebase_jm::total_shares)
+        .store_ref(rebase_jm::jetton_content)
+        .store_ref(rebase_jm::jetton_wallet_code)
+        .store_uint(rebase_jm::rebase_time, 32)
+        .store_uint(rebase_jm::rebase_interval, 32)
+    .end_cell()
+    .set_data();
+
+}
